@@ -1,0 +1,58 @@
+version: "3.1"
+services:
+  db:
+    image: mysql:5.7.36
+    ports:
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+        MYSQL_DATABASE: debq
+        MYSQL_USER: user
+        MYSQL_PASSWORD: qmsroot
+        MYSQL_ROOT_PASSWORD: qmsroot
+    restart: always    
+    volumes:
+          - ./dump:/docker-entrypoint-initdb.d
+          - ./conf:/etc/mysql/conf.d
+          - persistent:/var/lib/mysql
+    networks:
+          - default 
+    container_name: MYSQL
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5.1
+    links:
+       - db:db
+    ports:
+         - 8002:80
+    environment:
+      MYSQL_USER: user
+      MYSQL_PASSWORD: qmsroot
+      MYSQL_ROOT_PASSWORD: qmsroot
+      restart: always  
+      container_name: debQ
+  debservice:
+    image: debmedia.azurecr.io/debq:latest
+    ports:
+      - "8001:80"
+      - "9000:9000"
+    environment:
+      VIRTUAL_HOST: debq.duckdns.org
+      VIRTUAL_PORT: 9000
+      LETSENCRYPT_HOST: debq.duckdns.org
+      LETSENCRYPT_EMAIL: infraestructura@debmedia.com
+    container_name: debQ
+    restart: always
+    volumes:
+      - debsts:/debmedia/
+    depends_on:
+      - db
+    links:
+      - db
+    networks:
+      - default
+    command: >
+          bash -c "sleep 0.50m && for i in {1..5}; do ./debQ.sh; done && tail -F anything"       
+          
+volumes:
+    persistent:
+    debsts:
