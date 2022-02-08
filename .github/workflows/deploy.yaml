@@ -1,0 +1,66 @@
+name: Deploy on docker host1
+#establece tipo de accion 
+on: 
+ #push:
+    #branches:
+     # - generateimage
+ # en este caso se iniciara la accion al publicar una release    
+ release:
+   types: [published]
+
+# establece el host y SO de ejecucion del job
+jobs:
+  build:
+    runs-on: ubuntu-latest # sistema operativo del job
+    # etapas de job
+    steps:    
+      - uses: actions/checkout@v1  # action inicial
+#      - uses: azure/docker-login@v1
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/} # exprecion regular extrae el valor  del tag de la variable GITHUB_REF
+      - name: Check output
+        env: #se establece RELESE VERSION version como variable y a este como el valor de  ${{ steps.vars.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
+          run: |
+            echo $RELEASE_VERSION
+            echo ${{ steps.vars.outputs.tag }}  
+        uses: dsaltares/fetch-gh-release-asset@master   # se establece accion para descargar artefactos
+        with:
+          repo: "bclavijo110430/cicdgitactions" # valor de repositorio donde se encuentra los artifact
+          version: "tags/${{steps.vars.outputs.tag}}" #valor del tag  del artifact, corresponde al valor de  $RELEASE_VERSION
+          file: "stage.zip" # nombre del artifact en este caso stage
+          target: "./stage.zip" # path de descarga  temporal
+          token: ${{ secrets.TOKEN }}            
+        
+      - uses: azure/docker-login@v1      #se establece la action de  build y push  de imagenes de docker
+        with:
+           login-server: registry.azurecr.io
+           username: ${{ secrets.ACR_USERNAME }}
+           password: ${{ secrets.ACR_PASSWORD }}
+      - name: Build the tagged Docker image
+        run : docker build . --file Dockerfile  --tag  registry.azurecr.io/image:${{steps.vars.outputs.tag}} #tegea la imagen compilada con el tag de  version
+      - name: Push the tagged Docker image
+        run : docker push registry.azurecr.io/image:${{steps.vars.outputs.tag}} #sube la version tageada al registry
+      - name: Push retag to latest Docker image
+        run: docker tag registry.azurecr.io/image:${{steps.vars.outputs.tag}} registry.azurecr.io/image:latest # retagea la version a latest
+      - name: Push the latest Docker image
+        run: docker build . --file Dockerfile --tag registry.azurecr.io/image:latest #sube la version latest al registry
+ 
+      - name: Start Deployment
+      #uses: actions/checkout@v1    
+        uses: wshihadeh/docker-deployment-action@v1  #action que inicializa el deployment
+        with:
+           remote_docker_host: ubuntu@host.com #  enpdpoint  de despliegue
+           ssh_private_key: ${{ secrets.DOCKER_SSH_PRIVATE_KEY }}
+           ssh_public_key: ${{ secrets.DOCKER_SSH_PUBLIC_KEY }}
+           deployment_mode: docker-compose # motor de orquestacion disponible compose y swarm
+           copy_stack_file: true  # esta valor copia lo  archivos del repo al servidor destino 
+           deploy_path: /home/ubuntu/services/stacks # path de destino del server 
+           stack_file_name: docker-compose.yaml # nombre de archivo stack 
+           pull_images_first: true #este valor establece pull permanente  
+           keep_files: 3
+           args: -p test up -d #argumentos de up para  el stack establece nombre y up en segundo plano
+  
+          
+  
