@@ -1,4 +1,4 @@
-# INTRUCCIONES
- actualmente la ejecucion de realiza mediante la publicacion de una relese con el tag del artifact publicado en en repositorio
- es importante que al generar la relese  el  nombre de la relese corresponda al  al mismo tag publicado en el repo. para mayor informacion 
+# INSTRUCCIONES
+ actualmente la ejecucion de realiza mediante la publicacion de una release con el tag del artifact publicado en el repositorio
+ es importante que al generar la release  el  nombre de la release corresponda   al mismo tag publicado en el repo. 
  
